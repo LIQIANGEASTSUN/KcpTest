@@ -1,28 +1,15 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
 using System.Text;
 using UnityEngine;
-using KcpProject;
-using System;
 
 public class KcpTest : MonoBehaviour
 {
-
-    private KCP mKcp = null;
+    private KcpEntity kcpEntity;
 
     // Start is called before the first frame update
     void Start()
     {
-        uint conv = (uint)UnityEngine.Random.Range(1, uint.MaxValue);
-        mKcp = new KCP(conv, SocketSend);
-
-        // normal:  0, 40, 2, 1
-        // fast:    0, 30, 2, 1
-        // fast2:   1, 20, 2, 1
-        // fast3:   1, 10, 2, 1
-        mKcp.NoDelay(0, 30, 2, 1);
-        mKcp.SetStreamMode(true);
+        uint conv = (uint)Random.Range(1, uint.MaxValue);
+        kcpEntity = new KcpEntity(conv, SocketSend, Receive);
     }
 
     private uint mNextUpdateTime = 0;
@@ -33,56 +20,36 @@ public class KcpTest : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.A))
         {
-            string msg = $"发送消息:{number}";
+            string msg = $"我是消息:{number}";
             ++number;
             byte[] byteDatas = Encoding.UTF8.GetBytes(msg);
+
+            Debug.LogError("开始发送消息:" + msg);
             Debug.LogError("Send Origin byteLength:" + byteDatas.Length);
-            Send(byteDatas);
+            // 测试发送消息
+            kcpEntity.Send(byteDatas);
         }
 
-        if (0 == mNextUpdateTime || mKcp.CurrentMS >= mNextUpdateTime)
-        {
-            mKcp.Update();
-            mKcp.Check();
-        }
-
-        CheckReceive();
+        kcpEntity.Update();
     }
 
-    private void CheckReceive()
+    /// <summary>
+    /// 真正向 UDP 服务器发送消息的方法
+    /// </summary>
+    /// <param name="byteDatas"> Kcp 处理后的字节 </param>
+    private void SocketSend(byte[] byteDatas)
     {
-        for (; ; )
-        {
-            int size = mKcp.PeekSize();
-            if (size < 0)
-                break;
+        // 此处实现 Udp Socket 向服务器发送消息
 
-            byte[] byteDatas = new byte[size];
-            int n = mKcp.Recv(byteDatas, 0, size);
-            if (n > 0)
-            {
-                Receive(byteDatas);
-            }
-        }
+        // 由于没有写 UDP Socket 下面方法是模拟 Socket 接收后的处理
+        // 假设 UDP Socket 收到了消息 byteDatas
+        kcpEntity.SocketReceive(byteDatas, byteDatas.Length);
     }
 
-    private void SocketSend(byte[] byteDatas, int length)
-    {
-        byte[] bytes = new byte[length];
-        Array.Copy(byteDatas, bytes, length);
-        string msg = Encoding.UTF8.GetString(bytes);
-        Debug.LogError("SocketSend byteLength:" + bytes.Length);
-        Debug.LogError("SocketSend:" + msg);
-
-        bool ackNoDelay = true;
-        mKcp.Input(bytes, 0, bytes.Length, true, ackNoDelay);
-    }
-
-    public void Send(byte[] byteDatas)
-    {
-        mKcp.Send(byteDatas);
-    }
-
+    /// <summary>
+    /// 到这里才是拿到了服务器发送的数据
+    /// </summary>
+    /// <param name="byteDatas"></param>
     private void Receive(byte[] byteDatas)
     {
         string msg = Encoding.UTF8.GetString(byteDatas);
